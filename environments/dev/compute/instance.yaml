@@ -1,0 +1,16 @@
+apiVersion: demo.crossplane.io/v1alpha1
+kind: VirtualMachine
+metadata:
+  name: dev-instance
+  namespace: default
+  labels:
+    environment: dev
+spec:
+  region: eu-central-1
+  instanceType: t3.micro
+  ami: ami-0e6ea107664115459  # Amazon Linux 2023, eu-central-1 (April 2026)
+  subnetId: subnet-03a6570f61f714047
+
+  # Get this after applying dev/networking/security-group.yaml:
+  #   kubectl get securitygroup dev-sg -o jsonpath='{.status.securityGroupId}'
+  securityGroupId: sg-0c12963f023aa9ace

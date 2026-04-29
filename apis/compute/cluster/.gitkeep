@@ -1,0 +1,4 @@
+# Placeholder for future EKS cluster composition
+# Examples of what would live here:
+#   definition.yaml  → XCluster XRD (version, nodeCount, nodeInstanceType)
+#   composition.yaml → EKS Cluster + NodeGroup + IAM Roles MRs

@@ -1,0 +1,9 @@
+apiVersion: demo.crossplane.io/v1alpha1
+kind: ObjectStorage
+metadata:
+  name: dev-bucket
+  namespace: default
+  labels:
+    environment: dev
+spec:
+  region: eu-central-1

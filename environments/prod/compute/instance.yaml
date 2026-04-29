@@ -1,0 +1,16 @@
+apiVersion: demo.crossplane.io/v1alpha1
+kind: VirtualMachine
+metadata:
+  name: prod-instance
+  namespace: default
+  labels:
+    environment: prod
+spec:
+  region: eu-central-1
+  instanceType: t3.small   # larger than dev
+  ami: ami-0e6ea107664115459  # Amazon Linux 2023, eu-central-1 (April 2026)
+  subnetId: REPLACE_WITH_PROD_SUBNET_ID
+
+  # Get this after applying prod/networking/security-group.yaml:
+  #   kubectl get securitygroup prod-sg -o jsonpath='{.status.securityGroupId}'
+  securityGroupId: REPLACE_WITH_PROD_SG_ID

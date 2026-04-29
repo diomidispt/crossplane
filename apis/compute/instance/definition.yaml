@@ -1,0 +1,60 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xvirtualmachines.demo.crossplane.io
+spec:
+  group: demo.crossplane.io
+  names:
+    kind: XVirtualMachine
+    plural: xvirtualmachines
+  claimNames:
+    kind: VirtualMachine
+    plural: virtualmachines
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - ami
+                - subnetId
+                - securityGroupId
+              properties:
+                region:
+                  type: string
+                  default: eu-central-1
+                  description: AWS region for the EC2 instance.
+                instanceType:
+                  type: string
+                  default: t3.micro
+                  description: EC2 instance type.
+                ami:
+                  type: string
+                  description: >
+                    AMI ID for the instance. Get the latest Amazon Linux 2023:
+                    aws ec2 describe-images --owners amazon
+                    --filters "Name=name,Values=al2023-ami-2023.*-x86_64"
+                    --query "sort_by(Images, &CreationDate)[-1].ImageId"
+                    --output text --region eu-central-1
+                subnetId:
+                  type: string
+                  description: Subnet ID where the instance will be launched.
+                securityGroupId:
+                  type: string
+                  description: >
+                    AWS Security Group ID to attach. Create a SecurityGroup claim first,
+                    then get its ID: kubectl get securitygroup <name> -o jsonpath='{.status.securityGroupId}'
+            status:
+              type: object
+              properties:
+                instanceId:
+                  type: string
+                  description: EC2 instance ID assigned by AWS.
+                publicIp:
+                  type: string
+                  description: Public IP address of the instance (if assigned).

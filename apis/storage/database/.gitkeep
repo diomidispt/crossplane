@@ -1,0 +1,4 @@
+# Placeholder for future RDS composition
+# Examples of what would live here:
+#   definition.yaml  → XDatabase XRD (engine: postgres|mysql, instanceClass, storageGb)
+#   composition.yaml → DBInstance + DBSubnetGroup + SecurityGroup MRs

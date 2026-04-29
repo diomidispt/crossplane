@@ -1,0 +1,56 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xvirtualmachines.demo.crossplane.io
+  labels:
+    provider: aws
+spec:
+  compositeTypeRef:
+    apiVersion: demo.crossplane.io/v1alpha1
+    kind: XVirtualMachine
+  mode: Pipeline
+  pipeline:
+    - step: patch-and-transform
+      functionRef:
+        name: function-patch-and-transform
+      input:
+        apiVersion: pt.fn.crossplane.io/v1beta1
+        kind: Resources
+        patchSets:
+          - name: region
+            patches:
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.region
+                toFieldPath: spec.forProvider.region
+        resources:
+          - name: instance
+            base:
+              apiVersion: ec2.aws.upbound.io/v1beta2
+              kind: Instance
+              spec:
+                forProvider:
+                  region: eu-central-1
+                  instanceType: t3.micro
+                providerConfigRef:
+                  name: default
+            patches:
+              - type: PatchSet
+                patchSetName: region
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.instanceType
+                toFieldPath: spec.forProvider.instanceType
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.ami
+                toFieldPath: spec.forProvider.ami
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.subnetId
+                toFieldPath: spec.forProvider.subnetId
+              - type: FromCompositeFieldPath
+                fromFieldPath: spec.securityGroupId
+                toFieldPath: spec.forProvider.vpcSecurityGroupIds[0]
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.id
+                toFieldPath: status.instanceId
+              - type: ToCompositeFieldPath
+                fromFieldPath: status.atProvider.publicIp
+                toFieldPath: status.publicIp

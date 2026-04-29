@@ -1,0 +1,12 @@
+apiVersion: demo.crossplane.io/v1alpha1
+kind: SecurityGroup
+metadata:
+  name: prod-sg
+  namespace: default
+  labels:
+    environment: prod
+spec:
+  region: eu-central-1
+  vpcId: REPLACE_WITH_PROD_VPC_ID
+  description: "Prod environment - SSH restricted to internal network"
+  allowSshCidr: "10.0.0.0/8"

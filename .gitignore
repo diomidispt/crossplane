@@ -1,0 +1,9 @@
+# Real credential files - NEVER commit these
+secrets/*.yaml
+!secrets/*.example
+
+# OS / editor
+.DS_Store
+.idea/
+*.swp
+*.swo

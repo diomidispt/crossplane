@@ -1,0 +1,12 @@
+apiVersion: demo.crossplane.io/v1alpha1
+kind: SecurityGroup
+metadata:
+  name: dev-sg
+  namespace: default
+  labels:
+    environment: dev
+spec:
+  region: eu-central-1
+  vpcId: vpc-0941ebafc9fe28f2d
+  description: "Dev environment - SSH open to all (tighten for production)"
+  allowSshCidr: "0.0.0.0/0"

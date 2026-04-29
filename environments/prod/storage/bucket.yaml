@@ -1,0 +1,9 @@
+apiVersion: demo.crossplane.io/v1alpha1
+kind: ObjectStorage
+metadata:
+  name: prod-bucket
+  namespace: default
+  labels:
+    environment: prod
+spec:
+  region: eu-central-1

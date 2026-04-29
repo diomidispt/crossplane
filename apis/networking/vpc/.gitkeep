@@ -1,0 +1,4 @@
+# Placeholder for future VPC composition
+# Examples of what would live here:
+#   definition.yaml  → XVPC XRD (vpcCidr, region, enableDnsSupport)
+#   composition.yaml → VPC + Subnets + InternetGateway + RouteTable MRs
