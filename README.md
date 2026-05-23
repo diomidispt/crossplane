@@ -4,17 +4,32 @@ Provisions AWS infrastructure (S3 + EC2) from a local Kind cluster using Crosspl
 Follows a **platform-team / app-team** model: the platform team owns `bootstrap/` and `apis/`,
 while each environment team owns their `environments/<env>/` folder.
 
+## What Was Built
+
+This repo was created to see Crossplane in action — the goal was to watch real AWS resources appear
+and disappear by simply applying and deleting Kubernetes claims. We spun up multiple S3 buckets and
+EC2 instances, then deleted them, and observed Crossplane reconcile everything through to AWS.
+
+**Phase 1 — Storage**: defined an `ObjectStorage` abstraction and created several S3 buckets across
+dev and prod to confirm the full lifecycle (create → observe in AWS → delete).
+
+**Phase 2 — Compute**: added a `VirtualMachine` abstraction (EC2) and a standalone `SecurityGroup`.
+The SG is decoupled from the VM so one security group can be shared across multiple instances.
+We then launched and deleted EC2 instances the same way — pure YAML, no AWS console.
+
+---
+
 ## How It Works
 
 ```
 Claim  →  XR (composite)  →  Composition  →  Managed Resources  →  AWS
 ```
 
-| Claim Kind       | Composite         | AWS Resources Created    |
-|------------------|-------------------|--------------------------|
-| `SecurityGroup`  | `XSecurityGroup`  | SG + SSH IngressRule     |
-| `ObjectStorage`  | `XObjectStorage`  | S3 Bucket                |
-| `VirtualMachine` | `XVirtualMachine` | EC2 Instance             |
+| Claim Kind       | Composite         | AWS Resources Created         |
+|------------------|-------------------|-------------------------------|
+| `SecurityGroup`  | `XSecurityGroup`  | SG + SSH IngressRule          |
+| `ObjectStorage`  | `XObjectStorage`  | S3 Bucket                     |
+| `VirtualMachine` | `XVirtualMachine` | EC2 Instance                  |
 
 `SecurityGroup` is its own independent claim — one SG can be shared across many `VirtualMachine` claims.
 
@@ -25,8 +40,8 @@ Claim  →  XR (composite)  →  Composition  →  Managed Resources  →  AWS
 ```
 crossplane-demo/
 ├── bootstrap/                        # Platform team: install once per cluster
-│   ├── providers.yaml                #   AWS provider packages (s3, ec2)
-│   ├── functions.yaml                #   function-patch-and-transform
+│   ├── providers.yaml                #   AWS provider packages (s3 v2.5.3, ec2 v2.5.3)
+│   ├── functions.yaml                #   function-patch-and-transform v0.10.4
 │   └── provider-config.yaml          #   AWS credential binding
 │
 ├── apis/                             # Platform team: XRDs + Compositions
@@ -34,8 +49,7 @@ crossplane-demo/
 │   │   ├── security-group/
 │   │   │   ├── definition.yaml       #   XSecurityGroup XRD
 │   │   │   └── composition.yaml      #   → SG + IngressRule
-│   │   ├── vpc/                      #   (placeholder — VPC + Subnets + IGW)
-│   │   └── load-balancer/            #   (placeholder — ALB/NLB)
+│   │   └── vpc/                      #   (placeholder — VPC + Subnets + IGW)
 │   ├── storage/
 │   │   ├── bucket/
 │   │   │   ├── definition.yaml       #   XObjectStorage XRD
@@ -49,17 +63,21 @@ crossplane-demo/
 │
 ├── environments/                     # App/ops team: claims per environment
 │   ├── dev/
-│   │   ├── networking/security-group.yaml
-│   │   ├── storage/bucket.yaml
-│   │   └── compute/instance.yaml
+│   │   ├── networking/security-group.yaml   # dev-sg  (pre-filled demo values*)
+│   │   ├── storage/bucket.yaml              # dev-bucket
+│   │   └── compute/instance.yaml           # dev-instance (pre-filled demo values*)
 │   └── prod/
-│       ├── networking/security-group.yaml
-│       ├── storage/bucket.yaml
-│       └── compute/instance.yaml
+│       ├── networking/security-group.yaml   # prod-sg  (REPLACE_ placeholders)
+│       ├── storage/bucket.yaml              # prod-bucket
+│       └── compute/instance.yaml           # prod-instance (REPLACE_ placeholders)
 │
 └── secrets/
     └── aws-credentials.yaml.example  # Template — never commit real credentials
 ```
+
+> **\* dev/ pre-filled values**: `environments/dev/` files contain VPC, subnet, AMI, and SG IDs
+> from the original demo AWS account (eu-central-1). Replace them with values from your own
+> account before applying (see [Gather AWS values](#gather-aws-values-one-time-per-environment)).
 
 ---
 
@@ -140,8 +158,8 @@ Edit `secrets/aws-credentials.yaml` and fill in your credentials:
 stringData:
   credentials: |
     [default]
-    aws_access_key_id = xxxxx
-    aws_secret_access_key = xxxxx
+    aws_access_key_id = YOUR_ACCESS_KEY_ID
+    aws_secret_access_key = YOUR_SECRET_ACCESS_KEY
 ```
 
 Then apply (this file is gitignored — it will never be committed):
@@ -227,7 +245,8 @@ SG_ID=$(kubectl get securitygroup dev-sg \
   -o jsonpath='{.status.securityGroupId}')
 echo "SG ID: $SG_ID"
 
-# 3. Fill in the SG ID in the instance claim and apply
+# 3. Fill in the SG ID in the instance claim, then apply
+#    (or edit environments/dev/compute/instance.yaml manually)
 sed -i '' "s/REPLACE_WITH_DEV_SG_ID/$SG_ID/" \
   environments/dev/compute/instance.yaml
 kubectl apply -f environments/dev/compute/
@@ -283,20 +302,29 @@ kubectl get managed
 
 ```
 ┌─────────────────────────────────────────────┐
-│  environments/dev/compute/instance.yaml      │  ← app team writes this
-│  kind: VirtualMachine                        │
-│  spec: { instanceType, ami, subnetId, ... }  │
+│  environments/dev/compute/instance.yaml     │  ← app team writes this
+│  kind: VirtualMachine                       │
+│  spec: { instanceType, ami, subnetId, ... } │
 └────────────────────┬────────────────────────┘
                      │ Crossplane binds claim → composite
 ┌────────────────────▼────────────────────────┐
-│  XVirtualMachine (composite resource)        │  ← managed by Crossplane
+│  XVirtualMachine (composite resource)       │  ← managed by Crossplane
 └────────────────────┬────────────────────────┘
                      │ Composition + function-patch-and-transform
 ┌────────────────────▼────────────────────────┐
-│  Instance (ec2.aws.upbound.io/v1beta2)       │  ← Crossplane creates in AWS
+│  Instance (ec2.aws.upbound.io/v1beta2)      │  ← Crossplane creates in AWS
 └────────────────────┬────────────────────────┘
                      │ AWS API call
 ┌────────────────────▼────────────────────────┐
-│  Real EC2 Instance in eu-central-1           │
+│  Real EC2 Instance in eu-central-1          │
 └─────────────────────────────────────────────┘
 ```
+
+### Versions pinned in this repo
+
+| Component | Version |
+|-----------|---------|
+| Crossplane (Helm) | 2.2.1 |
+| provider-aws-s3 | v2.5.3 |
+| provider-aws-ec2 | v2.5.3 |
+| function-patch-and-transform | v0.10.4 |
